@@ -3,32 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Strikes - ETH</title>
+    <title>ETH Pro Calc - Z Dinámico</title>
     <style>
-        body { font-family: sans-serif; background: #121212; color: #e0e0e0; padding: 20px; display: flex; justify-content: center; }
-        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 100%; max-width: 400px; }
-        h2 { color: #bb86fc; text-align: center; }
-        .input-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-size: 0.9em; color: #b0b0b0; }
-        input { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #333; background: #2c2c2c; color: #fff; box-sizing: border-box; }
-        .result { margin-top: 20px; padding: 15px; background: #2a2a2a; border-left: 4px solid #bb86fc; }
-        .result div { margin-bottom: 8px; }
-        .highlight { color: #03dac6; font-weight: bold; font-size: 1.2em; }
-        .prob { color: #ffb74d; font-size: 0.85em; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; display: flex; justify-content: center; }
+        .card { background: #1e293b; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); width: 100%; max-width: 450px; border: 1px solid #334155; }
+        h2 { color: #38bdf8; text-align: center; margin-bottom: 25px; font-weight: 600; }
+        .input-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; font-size: 0.85em; color: #94a3b8; font-weight: 500; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; box-sizing: border-box; transition: 0.3s; }
+        input:focus { border-color: #38bdf8; outline: none; box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2); }
+        .result { margin-top: 25px; padding: 20px; background: #334155; border-radius: 12px; border-left: 5px solid #38bdf8; }
+        .res-item { margin-bottom: 15px; }
+        .res-label { font-size: 0.8em; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px; }
+        .highlight { color: #22d3ee; font-weight: bold; font-size: 1.4em; display: block; }
+        .prob-box { background: #0ea5e9; color: white; padding: 8px; border-radius: 6px; text-align: center; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Calculadora de Strikes</h2>
+    <h2>Estrategia ETH 2030</h2>
     
     <div class="input-group">
-        <label>Precio Actual (Spot USD)</label>
+        <label>Precio Actual ETH (Spot USD)</label>
         <input type="number" id="spot" value="1950" oninput="calcular()">
     </div>
 
     <div class="input-group">
-        <label>Implied Volatility (IV % anualizada)</label>
+        <label>Implied Volatility (IV Semanal %)</label>
         <input type="number" id="iv" value="129" oninput="calcular()">
     </div>
 
@@ -39,7 +41,7 @@
 
     <div class="input-group">
         <label>Desviación Estándar (Z-Score)</label>
-        <input type="number" id="zscore" value="2" step="0.1" oninput="calcular()">
+        <input type="number" id="zscore" value="1.75" step="0.01" oninput="calcular()">
     </div>
 
     <div class="result" id="output">
@@ -47,30 +49,48 @@
 </div>
 
 <script>
+// Función matemática para calcular la probabilidad exacta (CDF de Distribución Normal)
+function normalCDF(z) {
+    // Aproximación de la función de error (erf)
+    const t = 1 / (1 + 0.2316419 * Math.abs(z));
+    const d = 0.3989423 * Math.exp(-z * z / 2);
+    let p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    if (z > 0) p = 1 - p;
+    return z >= 0 ? 1 - p : p;
+}
+
 function calcular() {
     const S = parseFloat(document.getElementById('spot').value);
     const IV = parseFloat(document.getElementById('iv').value) / 100;
-    const T = parseFloat(document.getElementById('dte').value) / 365;
+    const DTE = parseFloat(document.getElementById('dte').value);
     const Z = parseFloat(document.getElementById('zscore').value);
 
-    if (isNaN(S) || isNaN(IV) || isNaN(T) || isNaN(Z)) return;
+    if (isNaN(S) || isNaN(IV) || isNaN(DTE) || isNaN(Z)) return;
 
-    // Fórmula de Movimiento Esperado (SD)
+    const T = DTE / 365;
     const movEsperado = S * Z * IV * Math.sqrt(T);
     
     const strikeVenta = S + movEsperado;
     const strikeCompra = S - movEsperado;
 
-    // Cálculo aproximado de probabilidad de NO ser ejercido (basado en distribución normal)
-    const prob = (Z == 2) ? "97.7%" : (Z == 1.5) ? "93.3%" : (Z == 1) ? "84.1%" : "Calculando...";
+    // La probabilidad de NO ser convertido es la probabilidad de estar dentro del rango (-Z, Z)
+    // Para una sola cola (solo Venta o solo Compra), la probabilidad de éxito es normalCDF(Z)
+    const probExito = (normalCDF(Z) * 100).toFixed(2);
 
     document.getElementById('output').innerHTML = `
-        <div>Venta Alta (Sell High): <br><span class="highlight">$${strikeVenta.toFixed(2)}</span></div>
-        <div>Compra Baja (Buy Low): <br><span class="highlight">$${strikeCompra.toFixed(2)}</span></div>
-        <div class="prob">Probabilidad de éxito estimada: ${prob}</div>
+        <div class="res-item">
+            <span class="res-label">Venta Alta (Strike):</span>
+            <span class="highlight">$${strikeVenta.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+        </div>
+        <div class="res-item">
+            <span class="res-label">Compra Baja (Strike):</span>
+            <span class="highlight">$${strikeCompra.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+        </div>
+        <div class="prob-box">
+            Probabilidad de NO conversión: ${probExito}%
+        </div>
     `;
 }
-// Ejecutar al cargar
 calcular();
 </script>
 
