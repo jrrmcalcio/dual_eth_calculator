@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Strikes - ETH</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: #e0e0e0; padding: 20px; display: flex; justify-content: center; }
+        .card { background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); width: 100%; max-width: 400px; }
+        h2 { color: #bb86fc; text-align: center; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 0.9em; color: #b0b0b0; }
+        input { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #333; background: #2c2c2c; color: #fff; box-sizing: border-box; }
+        .result { margin-top: 20px; padding: 15px; background: #2a2a2a; border-left: 4px solid #bb86fc; }
+        .result div { margin-bottom: 8px; }
+        .highlight { color: #03dac6; font-weight: bold; font-size: 1.2em; }
+        .prob { color: #ffb74d; font-size: 0.85em; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Calculadora de Strikes</h2>
+    
+    <div class="input-group">
+        <label>Precio Actual (Spot USD)</label>
+        <input type="number" id="spot" value="1950" oninput="calcular()">
+    </div>
+
+    <div class="input-group">
+        <label>Implied Volatility (IV % anualizada)</label>
+        <input type="number" id="iv" value="129" oninput="calcular()">
+    </div>
+
+    <div class="input-group">
+        <label>Días para Expiración (DTE)</label>
+        <input type="number" id="dte" value="7" oninput="calcular()">
+    </div>
+
+    <div class="input-group">
+        <label>Desviación Estándar (Z-Score)</label>
+        <input type="number" id="zscore" value="2" step="0.1" oninput="calcular()">
+    </div>
+
+    <div class="result" id="output">
+        </div>
+</div>
+
+<script>
+function calcular() {
+    const S = parseFloat(document.getElementById('spot').value);
+    const IV = parseFloat(document.getElementById('iv').value) / 100;
+    const T = parseFloat(document.getElementById('dte').value) / 365;
+    const Z = parseFloat(document.getElementById('zscore').value);
+
+    if (isNaN(S) || isNaN(IV) || isNaN(T) || isNaN(Z)) return;
+
+    // Fórmula de Movimiento Esperado (SD)
+    const movEsperado = S * Z * IV * Math.sqrt(T);
+    
+    const strikeVenta = S + movEsperado;
+    const strikeCompra = S - movEsperado;
+
+    // Cálculo aproximado de probabilidad de NO ser ejercido (basado en distribución normal)
+    const prob = (Z == 2) ? "97.7%" : (Z == 1.5) ? "93.3%" : (Z == 1) ? "84.1%" : "Calculando...";
+
+    document.getElementById('output').innerHTML = `
+        <div>Venta Alta (Sell High): <br><span class="highlight">$${strikeVenta.toFixed(2)}</span></div>
+        <div>Compra Baja (Buy Low): <br><span class="highlight">$${strikeCompra.toFixed(2)}</span></div>
+        <div class="prob">Probabilidad de éxito estimada: ${prob}</div>
+    `;
+}
+// Ejecutar al cargar
+calcular();
+</script>
+
+</body>
+</html>
