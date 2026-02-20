@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ETH Strategy Hub - Sync Pro</title>
+    <title>ETH Strategy Hub - Risk Focus</title>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --low: #4ade80; --mid: #facc15; --high: #f87171; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 15px; display: flex; justify-content: center; }
@@ -22,6 +22,8 @@
         .badge-green { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80; }
         .badge-yellow { background: rgba(250, 204, 21, 0.15); color: #facc15; border: 1px solid #facc15; }
         .badge-red { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid #f87171; }
+        .risk-text { font-size: 0.9em; margin-top: 10px; text-align: center; color: #cbd5e1; }
+        .risk-value { font-weight: bold; color: var(--high); }
     </style>
 </head>
 <body>
@@ -34,7 +36,7 @@
 
     <div class="input-group"><label>Precio Spot (USD)</label><input type="number" class="sync-s" value="1950" oninput="syncValues(this, 's')"></div>
     <div class="input-group"><label>IV Semanal (%)</label><input type="number" class="sync-iv" value="129" oninput="syncValues(this, 'iv')"></div>
-    <div class="input-group"><label>DTE (Días para Expiración)</label><input type="number" class="sync-dte" value="7" oninput="syncValues(this, 'dte')"></div>
+    <div class="input-group"><label>DTE (Días)</label><input type="number" class="sync-dte" value="7" oninput="syncValues(this, 'dte')"></div>
 
     <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;">
 
@@ -44,9 +46,9 @@
     </div>
 
     <div id="risk" class="tab-content">
-        <div class="input-group"><label>Strike Dual que ofrece Binance (USD)</label><input type="number" id="stk2" value="2600" oninput="calcAll()"></div>
+        <div class="input-group"><label>Strike Dual Binance (USD)</label><input type="number" id="stk2" value="2600" oninput="calcAll()"></div>
         <div class="input-group"><label>APR del Dual (%)</label><input type="number" id="apr2" value="12" oninput="calcAll()"></div>
-        <div class="input-group"><label>APY Staking Líquido (Ether.fi/Lido %)</label><input type="number" id="apy_staking" value="2.97" oninput="calcAll()"></div>
+        <div class="input-group"><label>APY Staking (Ether.fi %)</label><input type="number" id="apy_staking" value="2.97" oninput="calcAll()"></div>
         <div id="out2"></div>
     </div>
 </div>
@@ -59,10 +61,8 @@ function normalCDF(z) {
     return z >= 0 ? 1 - p : p;
 }
 
-// Función para sincronizar inputs
 function syncValues(input, type) {
-    const val = input.value;
-    document.querySelectorAll('.sync-' + type).forEach(el => el.value = val);
+    document.querySelectorAll('.sync-' + type).forEach(el => el.value = input.value);
     calcAll();
 }
 
@@ -75,59 +75,45 @@ function openTab(name) {
 }
 
 function calcAll() {
-    // Obtener valores comunes
     const S = parseFloat(document.querySelector('.sync-s').value);
     const IV = parseFloat(document.querySelector('.sync-iv').value)/100;
     const DTE = parseFloat(document.querySelector('.sync-dte').value);
     const T = DTE/365;
-
     if (isNaN(S) || isNaN(IV) || isNaN(DTE)) return;
 
-    // Lógica Tab 1
+    // Tab 1
     const Z = parseFloat(document.getElementById('z1').value);
     const mov = S * Z * IV * Math.sqrt(T);
     const prob1 = (normalCDF(Z) * 100).toFixed(2);
-    document.getElementById('out1').innerHTML = `
-        Venta Alta: <span class="highlight">$${(S+mov).toLocaleString(undefined, {minimumFractionDigits: 2})}</span> 
-        Compra Baja: <span class="highlight">$${(S-mov).toLocaleString(undefined, {minimumFractionDigits: 2})}</span> 
-        Prob. Éxito: ${prob1}%`;
+    document.getElementById('out1').innerHTML = `Venta: <span class="highlight">$${(S+mov).toLocaleString()}</span> Compra: <span class="highlight">$${(S-mov).toLocaleString()}</span> Éxito: ${prob1}%`;
 
-    // Lógica Tab 2
+    // Tab 2
     const K = parseFloat(document.getElementById('stk2').value);
     const APR = parseFloat(document.getElementById('apr2').value);
     const APY_S = parseFloat(document.getElementById('apy_staking').value);
 
     const zManual = Math.abs(Math.log(K/S) / (IV * Math.sqrt(T)));
-    const probNoConv = (normalCDF(zManual) * 100).toFixed(2);
+    const probNoConv = normalCDF(zManual) * 100;
+    const probPerdida = (100 - probNoConv).toFixed(2);
     
     let colorClass = 'badge-red', msg = 'Riesgo de Conversión Alto';
 
     if (probNoConv >= 95) {
-        if (APR > (APY_S * 1.5)) {
-            colorClass = 'badge-green';
-            msg = 'Excelente Costo/Beneficio (Ganas >50% más que Staking)';
-        } else {
-            colorClass = 'badge-yellow';
-            msg = 'Conservador (Seguro pero paga poco más que Staking)';
-        }
+        if (APR > (APY_S * 1.5)) { colorClass = 'badge-green'; msg = 'Excelente Costo/Beneficio'; }
+        else { colorClass = 'badge-yellow'; msg = 'Conservador (Paga poco)'; }
     } else if (probNoConv >= 92) {
-        colorClass = 'badge-yellow';
-        msg = 'Aceptable (Conversión rara, 3-4 veces al año)';
-    } else {
-        colorClass = 'badge-red';
-        msg = 'Peligro: Probabilidad de pérdida de ETH alta';
+        colorClass = 'badge-yellow'; msg = 'Aceptable (3-4 conv./año)';
     }
 
     document.getElementById('out2').innerHTML = `
         <div class="result-box">
-            Prob. Éxito (No Conv.): <span class="highlight">${probNoConv}%</span>
+            Prob. Conservar ETH: <span class="highlight">${probNoConv.toFixed(2)}%</span>
             Ventaja vs Staking: <b>+${(APR - APY_S).toFixed(2)}%</b>
             <div class="badge ${colorClass}">${msg}</div>
+            <div class="risk-text">Probabilidad de perder tus ETH: <span class="risk-value">${probPerdida}%</span></div>
         </div>
     `;
 }
-
-// Inicializar
 calcAll();
 </script>
 </body>
