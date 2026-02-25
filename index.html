@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ETH Sentinel v6.7 - Fixed Step Sync</title>
+    <title>ETH Sentinel v6.8 - Master Suite</title>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --low: #4ade80; --mid: #facc15; --high: #f87171; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 10px; display: flex; justify-content: center; }
@@ -13,26 +13,31 @@
         .tab-btn.active { background: var(--primary); color: var(--bg); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .btn-sync { width: 100%; background: var(--primary); color: var(--bg); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 15px; }
+        .btn-sync { width: 100%; background: var(--primary); color: var(--bg); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
         .row { display: flex; gap: 10px; margin-bottom: 10px; }
         .col { flex: 1; }
         label { display: block; font-size: 0.75em; color: #94a3b8; margin-bottom: 4px; }
         input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: var(--bg); color: #fff; box-sizing: border-box; }
-        .weight-box { border: 1px solid #475569; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: rgba(56, 189, 248, 0.05); }
+        input:disabled { opacity: 0.4; }
+        .slider-container { background: #334155; padding: 12px; border-radius: 10px; margin-bottom: 15px; }
+        input[type="range"] { width: 100%; accent-color: var(--primary); cursor: pointer; }
+        .trend-indicator { padding: 8px; border-radius: 8px; text-align: center; font-size: 0.8em; font-weight: bold; margin-bottom: 10px; border: 1px solid #475569; }
         .result-box { margin-top: 15px; padding: 15px; border-radius: 10px; background: #334155; border-left: 5px solid var(--primary); }
         .highlight { color: var(--primary); font-weight: bold; font-size: 1.4em; display: block; }
-        .badge { display: block; padding: 8px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; font-size: 0.85em; }
+        .badge { display: block; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 12px; }
+        .stat-line { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9em; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <div class="tabs">
-        <button class="tab-btn active" onclick="openTab('algo')">ESTRATEGIA</button>
-        <button class="tab-btn" onclick="openTab('dual')">FINANZAS</button>
+        <button class="tab-btn active" onclick="openTab('algo')">ALGORITMO</button>
+        <button class="tab-btn" onclick="openTab('dual')">DUAL ANALYST</button>
     </div>
 
-    <button class="btn-sync" onclick="fetchMarket()">🔄 SINCRONIZAR DATOS REALES</button>
+    <button class="btn-sync" onclick="fetchMarket()">🔄 ACTUALIZAR DESDE BINANCE</button>
+    <div id="trendLabel" class="trend-indicator">Sincroniza para ver tendencia...</div>
 
     <div id="algo" class="tab-content active">
         <div class="row">
@@ -40,38 +45,41 @@
             <div class="col"><label>EMA 20 (4H)</label><input type="number" id="ema" oninput="calc()"></div>
         </div>
 
-        <div class="weight-box">
-            <div class="row">
-                <div class="col"><label>Peso W (Semanal) %</label><input type="number" id="pW" value="75" oninput="syncP(true)"></div>
-                <div class="col"><label>Peso D (Diario) %</label><input type="number" id="pD" value="25" oninput="syncP(false)"></div>
+        <div class="slider-container">
+            <div style="display:flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="font-size:0.75em; color:#94a3b8;">Peso Diario: <b id="valD">25%</b></span>
+                <span style="font-size:0.75em; color:#94a3b8;">Peso Semanal: <b id="valW">75%</b></span>
             </div>
+            <input type="range" id="pSlider" min="0" max="100" value="75" oninput="updateSlider(this.value)">
         </div>
 
-        <div class="row">
-            <div class="col"><label>ATR Diario</label><input type="number" id="atrd" oninput="calc()"></div>
-            <div class="col"><label>ATR Semanal</label><input type="number" id="atrw" oninput="calc()"></div>
+        <div style="background: #1e293b; border: 1px solid #475569; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+            <div style="margin-bottom:8px;"><input type="checkbox" id="autoATR" checked onchange="toggleATR()"> <small>Cálculo ATR Automático</small></div>
+            <div class="row">
+                <div class="col"><label>ATR D</label><input type="number" id="atrd" disabled oninput="calc()"></div>
+                <div class="col"><label>ATR W</label><input type="number" id="atrw" disabled oninput="calc()"></div>
+            </div>
         </div>
         
         <div class="row">
             <div class="col"><label>DTE (Días)</label><input type="number" id="dte" class="sync-d" value="2" oninput="syncInputs(this, 'd')"></div>
-            <div class="col"><label>Z-Score Base</label><input type="number" id="zBase" value="2.0" step="0.1" oninput="calc()"></div>
+            <div class="col"><label>Base Z-Score</label><input type="number" id="zBase" value="2.0" step="0.1" oninput="calc()"></div>
         </div>
 
         <div class="row">
-            <div class="col"><label>IV Diaria %</label><input type="number" id="ivd" value="53" oninput="calc()"></div>
-            <div class="col"><label>IV Semanal %</label><input type="number" id="ivw" value="75" oninput="calc()"></div>
+            <div class="col"><label>IV D %</label><input type="number" id="ivd" value="53" oninput="calc()"></div>
+            <div class="col"><label>IV W %</label><input type="number" id="ivw" value="75" oninput="calc()"></div>
         </div>
         <div class="result-box" id="outAlgo"></div>
     </div>
 
     <div id="dual" class="tab-content">
         <div class="row">
-            <div class="col"><label>Spot Actual</label><input type="number" class="sync-s" disabled></div>
-            <div class="col"><label>Strike de Binance</label><input type="number" id="stkBinance" placeholder="Ej: 2150" oninput="calc()"></div>
-        </div>
-        <div class="row" style="margin-top:10px">
+            <div class="col"><label>Strike Binance</label><input type="number" id="stkBinance" oninput="calc()"></div>
             <div class="col"><label>APR Dual %</label><input type="number" id="aprDual" value="12" oninput="calc()"></div>
-            <div class="col"><label>Staking APY %</label><input type="number" id="apyStaking" value="2.97" oninput="calc()"></div>
+        </div>
+        <div class="row">
+            <div class="col"><label>Staking APY %</label><input type="number" id="apyStaking" value="3.0" oninput="calc()"></div>
         </div>
         <div id="outDual"></div>
     </div>
@@ -91,11 +99,16 @@ function openTab(name) {
     calc();
 }
 
-function syncP(isW) {
-    let w = document.getElementById('pW'), d = document.getElementById('pD');
-    let v = Math.min(100, Math.max(0, parseFloat(isW ? w.value : d.value) || 0));
-    if(isW) { w.value = v; d.value = 100 - v; } else { d.value = v; w.value = 100 - v; }
+function updateSlider(val) {
+    document.getElementById('valW').innerText = val + '%';
+    document.getElementById('valD').innerText = (100 - val) + '%';
     calc();
+}
+
+function toggleATR() {
+    const isAuto = document.getElementById('autoATR').checked;
+    document.getElementById('atrd').disabled = isAuto;
+    document.getElementById('atrw').disabled = isAuto;
 }
 
 function syncInputs(el, type) {
@@ -105,8 +118,8 @@ function syncInputs(el, type) {
 
 async function fetchMarket() {
     try {
-        const p = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT').then(r => r.json());
-        const spot = parseFloat(p.price);
+        const pRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT').then(r => r.json());
+        const spot = parseFloat(pRes.price);
         document.querySelectorAll('.sync-s').forEach(i => i.value = spot.toFixed(2));
         
         const kRes = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=4h&limit=50').then(r => r.json());
@@ -114,14 +127,21 @@ async function fetchMarket() {
         kRes.forEach(c => { ema = (parseFloat(c[4]) - ema) * k + ema; });
         document.getElementById('ema').value = ema.toFixed(2);
 
-        const dK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=15').then(r => r.json());
-        let sD = 0; dK.slice(0,14).forEach(k => sD += (k[2]-k[3]));
-        document.getElementById('atrd').value = (sD/14).toFixed(2);
+        if(document.getElementById('autoATR').checked) {
+            const dK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=15').then(r => r.json());
+            let sD = 0; dK.slice(0,14).forEach(v => sD += (v[2]-v[3]));
+            document.getElementById('atrd').value = (sD/14).toFixed(2);
+            const wK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1w&limit=15').then(r => r.json());
+            let sW = 0; wK.slice(0,14).forEach(v => sW += (v[2]-v[3]));
+            document.getElementById('atrw').value = (sW/14).toFixed(2);
+        }
         
-        const wK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1w&limit=15').then(r => r.json());
-        let sW = 0; wK.slice(0,14).forEach(k => sW += (k[2]-k[3]));
-        document.getElementById('atrw').value = (sW/14).toFixed(2);
-
+        const tLabel = document.getElementById('trendLabel');
+        const diff = ((spot - ema) / ema) * 100;
+        if(diff > 0.3) { tLabel.innerText = "TENDENCIA 4H: ALCISTA (Z+ ADAPTATIVO)"; tLabel.style.borderColor = "var(--high)"; tLabel.style.color = "var(--high)"; }
+        else if(diff < -0.3) { tLabel.innerText = "TENDENCIA 4H: BAJISTA (Z- ADAPTATIVO)"; tLabel.style.borderColor = "var(--low)"; tLabel.style.color = "var(--low)"; }
+        else { tLabel.innerText = "TENDENCIA 4H: LATERAL"; tLabel.style.borderColor = "#475569"; tLabel.style.color = "#94a3b8"; }
+        
         calc();
     } catch(e) { console.error(e); }
 }
@@ -130,51 +150,49 @@ function calc() {
     const S = parseFloat(document.getElementById('spot').value) || 0;
     const EMA = parseFloat(document.getElementById('ema').value) || 0;
     const DTE = parseFloat(document.getElementById('dte').value) || 1;
-    const pW = (parseFloat(document.getElementById('pW').value) || 0) / 100;
-    const pD = (parseFloat(document.getElementById('pD').value) || 0) / 100;
+    const pW = (parseFloat(document.getElementById('pSlider').value) || 0) / 100;
+    const pD = 1 - pW;
     
     // 1. Strike Algoritmo
     const distPct = ((S - EMA) / EMA) * 100;
     let adj = Math.max(-0.5, Math.min(0.5, distPct * 0.1));
-    const finalZ = (parseFloat(document.getElementById('zBase').value) || 2.0) + adj;
+    const finalZ = (parseFloat(document.getElementById('zBase').value) || 2) + adj;
     
     const ATRE = ((parseFloat(document.getElementById('atrw').value)/7)*pW) + (parseFloat(document.getElementById('atrd').value)*pD);
     const IVE = ((parseFloat(document.getElementById('ivw').value)/100)*pW) + ((parseFloat(document.getElementById('ivd').value)/100)*pD);
     
-    let rawStrike = Math.max(S + (ATRE * DTE * finalZ), S * (1 + (IVE * Math.sqrt(DTE/365) * finalZ)));
-    
-    // REDONDEO ESTRICTO DE 25 EN 25
-    const step = 25;
-    const realStrike = Math.ceil(rawStrike / step) * step;
+    let rawS = Math.max(S + (ATRE * DTE * finalZ), S * (1 + (IVE * Math.sqrt(DTE/365) * finalZ)));
+    const realStrike = Math.ceil(rawS / 25) * 25;
 
     document.getElementById('outAlgo').innerHTML = `
         <label>STRIKE RECOMENDADO ($25 STEP):</label>
         <span class="highlight">$${realStrike.toLocaleString()}</span>
-        <div style="font-size:0.7em; color:#94a3b8; margin-top:5px">
-            Distancia EMA: ${distPct.toFixed(2)}% | Z-Final: ${finalZ.toFixed(2)}
-        </div>
+        <div style="font-size:0.75em; margin-top:5px; color:#94a3b8">Z Ajustado: ${finalZ.toFixed(2)} | Elasticidad: ${distPct.toFixed(2)}%</div>
     `;
 
-    // 2. Análisis Financiero
+    // 2. Análisis Dual
     const stkF = parseFloat(document.getElementById('stkBinance').value) || realStrike;
     const aprD = parseFloat(document.getElementById('aprDual').value) || 0;
-    const apyS = parseFloat(document.getElementById('apyStaking').value) || 0;
+    const apyS = parseFloat(document.getElementById('apyStaking').value) || 1;
     
     const dualAPY = (Math.pow(1 + (aprD/100)/52, 52) - 1) * 100;
+    const mult = (dualAPY / apyS);
     const tScore = Math.log(stkF/S) / (IVE * Math.sqrt(DTE/365));
-    const probP = (1 - studentT6(tScore)) * 100;
+    const probExito = studentT6(tScore) * 100;
+    const probP = 100 - probExito;
 
     let color = 'background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80;';
-    let msg = "Excelente Oportunidad";
+    let msg = "Excelente Riesgo-Beneficio";
     if(probP > 4.5) { color = 'background: rgba(250, 204, 21, 0.15); color: #facc15; border: 1px solid #facc15;'; msg = "Riesgo Moderado"; }
-    if(probP > 9) { color = 'background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid #f87171;'; msg = "Peligro de Conversión"; }
+    if(probP > 9) { color = 'background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid #f87171;'; msg = "Peligro: Alta Prob. de Venta"; }
 
     document.getElementById('outDual').innerHTML = `
         <div class="result-box">
-            Prob. Perder ETH: <b style="color:${probP > 9 ? 'var(--high)' : 'var(--mid)'}">${probP.toFixed(2)}%</b>
-            <div style="margin-top:5px; font-size:0.85em">
-                APY Dual: <b>${dualAPY.toFixed(2)}%</b> vs Staking: <b>${apyS}%</b>
-            </div>
+            <div class="stat-line"><span>Prob. Éxito:</span><span style="color:var(--low); font-weight:bold;">${probExito.toFixed(2)}%</span></div>
+            <div class="stat-line"><span>Riesgo Conversión:</span><span style="color:${probP > 9 ? 'var(--high)' : 'var(--mid)'}; font-weight:bold;">${probP.toFixed(2)}%</span></div>
+            <hr style="border:0; border-top:1px solid #475569; margin:10px 0">
+            <div class="stat-line"><span>APY Dual vs Stake:</span><b>${dualAPY.toFixed(2)}% vs ${apyS.toFixed(2)}%</b></div>
+            <div class="stat-line"><span>Ventaja Financiera:</span><b style="color:var(--primary)">${mult.toFixed(2)}x más que Staking</b></div>
             <div class="badge" style="${color}">${msg}</div>
         </div>
     `;
