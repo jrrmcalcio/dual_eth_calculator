@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ETH Sentinel v7.3 - Full Suite</title>
+    <title>ETH Sentinel v7.4 - Optimized</title>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --low: #4ade80; --mid: #facc15; --high: #f87171; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 10px; display: flex; justify-content: center; }
@@ -47,14 +47,6 @@
             <input type="range" id="pSlider" min="0" max="100" value="75" oninput="updateSliders()">
         </div>
 
-        <div class="slider-container" style="border-color: var(--primary);">
-            <div style="display:flex; justify-content: space-between; font-size: 0.8em;">
-                <span>Distribución (Libertad):</span>
-                <b id="valV" style="color:var(--primary)">12</b>
-            </div>
-            <input type="range" id="vSlider" min="2" max="100" value="12" oninput="updateSliders()">
-        </div>
-
         <div class="row">
             <div class="col"><label>Spot ETH</label><input type="number" id="spot" oninput="calc()"></div>
             <div class="col"><label>EMA 20 (4H)</label><input type="number" id="ema" oninput="calc()"></div>
@@ -65,20 +57,34 @@
             <div class="col"><label>Base Z-Score</label><input type="number" id="zBase" value="2.0" step="0.1" oninput="calc()"></div>
         </div>
 
-        <div class="row">
-            <div class="col"><label>IV D %</label><input type="number" id="ivd" value="45" oninput="calc()"></div>
-            <div class="col"><label>IV W %</label><input type="number" id="ivw" value="55" oninput="calc()"></div>
+        <div class="slider-container" style="background:#1e293b;">
+            <div style="margin-bottom:8px; display:flex; align-items:center; gap:5px;">
+                <input type="checkbox" id="autoATR" checked onchange="toggleATR()" style="width:auto;">
+                <small style="color:white; font-weight:bold;">Cálculo ATR Automático</small>
+            </div>
+            <div class="row">
+                <div class="col"><label>ATR D</label><input type="number" id="atrd" value="85" oninput="calc()"></div>
+                <div class="col"><label>ATR W</label><input type="number" id="atrw" value="450" oninput="calc()"></div>
+            </div>
         </div>
 
-        <div class="row" style="background:#1e293b; padding:10px; border-radius:8px;">
-            <div class="col"><label>ATR D</label><input type="number" id="atrd" value="85" oninput="calc()"></div>
-            <div class="col"><label>ATR W</label><input type="number" id="atrw" value="450" oninput="calc()"></div>
+        <div class="row">
+            <div class="col"><label>IV D %</label><input type="number" id="ivd" value="35" oninput="calc()"></div>
+            <div class="col"><label>IV W %</label><input type="number" id="ivw" value="45" oninput="calc()"></div>
         </div>
 
         <div class="result-box" id="outAlgo"></div>
     </div>
 
     <div id="dual" class="tab-content">
+        <div class="slider-container" style="border-color: var(--primary);">
+            <div style="display:flex; justify-content: space-between; font-size: 0.8em;">
+                <span>Distribución (Libertad):</span>
+                <b id="valV" style="color:var(--primary)">12</b>
+            </div>
+            <input type="range" id="vSlider" min="2" max="100" value="12" oninput="updateSliders()">
+        </div>
+
         <div class="row">
             <div class="col"><label>Strike Binance</label><input type="number" id="stkBinance" oninput="calc()"></div>
             <div class="col"><label>APR Dual %</label><input type="number" id="aprDual" value="12" oninput="calc()"></div>
@@ -112,6 +118,12 @@ function updateSliders() {
     calc();
 }
 
+function toggleATR() {
+    const isAuto = document.getElementById('autoATR').checked;
+    document.getElementById('atrd').disabled = isAuto;
+    document.getElementById('atrw').disabled = isAuto;
+}
+
 async function fetchMarket() {
     try {
         const pRes = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT').then(r => r.json());
@@ -122,13 +134,14 @@ async function fetchMarket() {
         kRes.forEach(c => { ema = (parseFloat(c[4]) - ema) * k + ema; });
         document.getElementById('ema').value = ema.toFixed(2);
         
-        const dK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=15').then(r => r.json());
-        let sD = 0; dK.slice(0,14).forEach(v => sD += (v[2]-v[3]));
-        document.getElementById('atrd').value = (sD/14).toFixed(2);
-
-        const wK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1w&limit=15').then(r => r.json());
-        let sW = 0; wK.slice(0,14).forEach(v => sW += (v[2]-v[3]));
-        document.getElementById('atrw').value = (sW/14).toFixed(2);
+        if(document.getElementById('autoATR').checked) {
+            const dK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=15').then(r => r.json());
+            let sD = 0; dK.slice(0,14).forEach(v => sD += (v[2]-v[3]));
+            document.getElementById('atrd').value = (sD/14).toFixed(2);
+            const wK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1w&limit=15').then(r => r.json());
+            let sW = 0; wK.slice(0,14).forEach(v => sW += (v[2]-v[3]));
+            document.getElementById('atrw').value = (sW/14).toFixed(2);
+        }
 
         const tLabel = document.getElementById('trendLabel');
         const diff = ((spot - ema) / ema) * 100;
@@ -197,6 +210,7 @@ function calc() {
     `;
 }
 window.onload = fetchMarket;
+toggleATR(); // Inicializar estado de inputs
 </script>
 </body>
 </html>
