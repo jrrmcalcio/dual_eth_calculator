@@ -3,62 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ETH Sentinel v6.4 - Hybrid Engine</title>
+    <title>ETH Sentinel v6.5 - Financial Engine</title>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --low: #4ade80; --mid: #facc15; --high: #f87171; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 10px; display: flex; justify-content: center; }
         .card { background: var(--card); padding: 20px; border-radius: 16px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; background: #0f172a; padding: 5px; border-radius: 10px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; background: none; color: #94a3b8; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 0.8em; }
+        .tab-btn.active { background: var(--primary); color: var(--bg); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
         .btn-sync { width: 100%; background: var(--primary); color: var(--bg); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
         .row { display: flex; gap: 10px; margin-bottom: 10px; }
         .col { flex: 1; }
         label { display: block; font-size: 0.75em; color: #94a3b8; margin-bottom: 4px; }
         input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: var(--bg); color: #fff; box-sizing: border-box; }
-        input:disabled { opacity: 0.4; cursor: not-allowed; }
-        .mode-selector { display: flex; align-items: center; gap: 10px; background: #334155; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85em; }
-        .elastic-badge { padding: 6px; border-radius: 6px; font-size: 0.75em; text-align: center; margin-bottom: 10px; border: 1px solid #475569; }
+        input:disabled { opacity: 0.4; }
+        .elastic-badge { padding: 6px; border-radius: 6px; font-size: 0.75em; text-align: center; margin-bottom: 10px; border: 1px solid #475569; font-weight: bold;}
         .result-box { margin-top: 15px; padding: 15px; border-radius: 10px; background: #334155; border-left: 5px solid var(--primary); }
-        .highlight { color: var(--primary); font-weight: bold; font-size: 1.3em; display: block; }
+        .highlight { color: var(--primary); font-weight: bold; font-size: 1.2em; display: block; }
+        .badge { display: block; padding: 8px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; font-size: 0.85em; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <button class="btn-sync" onclick="fetchMarket()">🔄 SINCRONIZAR MERCADO</button>
-    
-    <div class="mode-selector">
-        <input type="checkbox" id="autoATR" checked onchange="toggleATRFields()">
-        <label for="autoATR" style="margin:0; color:white; cursor:pointer;">Calcular ATRs automáticamente (Binance)</label>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('algo')">ALGORITMO STRIKE</button>
+        <button class="tab-btn" onclick="openTab('dual')">ANÁLISIS DUAL</button>
     </div>
 
-    <div id="elasticity" class="elastic-badge">Sincroniza para ver elasticidad...</div>
+    <button class="btn-sync" onclick="fetchMarket()">🔄 SINCRONIZAR MERCADO</button>
 
     <div class="row">
-        <div class="col"><label>Spot ETH</label><input type="number" id="spot" oninput="calc()"></div>
+        <div class="col"><label>Spot ETH</label><input type="number" id="spot" class="sync-s" oninput="syncInputs(this, 's')"></div>
         <div class="col"><label>EMA 20 (4H)</label><input type="number" id="ema" oninput="calc()"></div>
     </div>
 
-    <div class="row">
-        <div class="col"><label>ATR Diario (D)</label><input type="number" id="atrd" value="85" oninput="calc()" disabled></div>
-        <div class="col"><label>ATR Semanal (W)</label><input type="number" id="atrw" value="450" oninput="calc()" disabled></div>
+    <div id="algo" class="tab-content active">
+        <div style="background: #334155; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+            <input type="checkbox" id="autoATR" checked onchange="toggleATRFields()"> <small>ATRs Automáticos</small>
+            <div class="row" style="margin-top:5px">
+                <div class="col"><label>ATR D</label><input type="number" id="atrd" value="85" disabled oninput="calc()"></div>
+                <div class="col"><label>ATR W</label><input type="number" id="atrw" value="450" disabled oninput="calc()"></div>
+            </div>
+        </div>
+        <div id="elasticity" class="elastic-badge">--</div>
+        <div class="row">
+            <div class="col"><label>DTE (Días)</label><input type="number" id="dte" class="sync-d" value="2" oninput="syncInputs(this, 'd')"></div>
+            <div class="col"><label>Base Z-Score</label><input type="number" id="zBase" value="2.0" step="0.1" oninput="calc()"></div>
+        </div>
+        <div class="row">
+            <div class="col"><label>IV D %</label><input type="number" id="ivd" value="53" oninput="calc()"></div>
+            <div class="col"><label>IV W %</label><input type="number" id="ivw" value="129" oninput="calc()"></div>
+        </div>
+        <div class="result-box" id="outAlgo"></div>
     </div>
 
-    <div class="row">
-        <div class="col"><label>DTE (Días)</label><input type="number" id="dte" value="2" oninput="calc()"></div>
-        <div class="col"><label>Base Z-Score</label><input type="number" id="zBase" value="2.0" step="0.1" oninput="calc()"></div>
+    <div id="dual" class="tab-content">
+        <div class="input-group"><label>Strike de Binance (USD)</label><input type="number" id="stkBinance" oninput="calc()"></div>
+        <div class="row" style="margin-top:10px">
+            <div class="col"><label>APR Dual %</label><input type="number" id="aprDual" value="12" oninput="calc()"></div>
+            <div class="col"><label>Staking APY %</label><input type="number" id="apyStaking" value="2.97" oninput="calc()"></div>
+        </div>
+        <div id="outDual"></div>
     </div>
-
-    <div class="row">
-        <div class="col"><label>IV Diaria %</label><input type="number" id="ivd" value="53" oninput="calc()"></div>
-        <div class="col"><label>IV Semanal %</label><input type="number" id="ivw" value="129" oninput="calc()"></div>
-    </div>
-
-    <div class="result-box" id="out"></div>
 </div>
 
 <script>
 function studentT6(t) {
     let x = t / Math.sqrt(6);
     return 0.5 + (1/Math.PI) * (Math.atan(x) + (x/((1+x*x)*3)) * (1 + 2/(3*(1+x*x))));
+}
+
+function openTab(name) {
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(name).classList.add('active');
+    event.currentTarget.classList.add('active');
+    calc();
+}
+
+function syncInputs(el, type) {
+    document.querySelectorAll('.sync-' + type).forEach(i => i.value = el.value);
+    calc();
 }
 
 function toggleATRFields() {
@@ -69,31 +97,20 @@ function toggleATRFields() {
 
 async function fetchMarket() {
     try {
-        const isAuto = document.getElementById('autoATR').checked;
-        
-        // 1. Spot
         const p = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT').then(r => r.json());
-        document.getElementById('spot').value = parseFloat(p.price).toFixed(2);
-
-        // 2. EMA 20 (4h)
+        document.querySelectorAll('.sync-s').forEach(i => i.value = parseFloat(p.price).toFixed(2));
         const kRes = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=4h&limit=50').then(r => r.json());
-        let ema = parseFloat(kRes[0][4]);
-        const k = 2 / (20 + 1);
+        let ema = parseFloat(kRes[0][4]); const k = 2/21;
         kRes.forEach(c => { ema = (parseFloat(c[4]) - ema) * k + ema; });
         document.getElementById('ema').value = ema.toFixed(2);
-
-        if (isAuto) {
-            // 3. ATR Diario (14d)
+        if(document.getElementById('autoATR').checked) {
             const dK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=15').then(r => r.json());
             let sD = 0; dK.slice(0,14).forEach(k => sD += (k[2]-k[3]));
             document.getElementById('atrd').value = (sD/14).toFixed(2);
-
-            // 4. ATR Semanal (14w)
             const wK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1w&limit=15').then(r => r.json());
             let sW = 0; wK.slice(0,14).forEach(k => sW += (k[2]-k[3]));
             document.getElementById('atrw').value = (sW/14).toFixed(2);
         }
-        
         calc();
     } catch(e) { console.error(e); }
 }
@@ -102,42 +119,41 @@ function calc() {
     const S = parseFloat(document.getElementById('spot').value) || 0;
     const EMA = parseFloat(document.getElementById('ema').value) || 0;
     const DTE = parseFloat(document.getElementById('dte').value) || 1;
-    const zBase = parseFloat(document.getElementById('zBase').value) || 1;
-    const ATRD = parseFloat(document.getElementById('atrd').value) || 0;
-    const ATRW = parseFloat(document.getElementById('atrw').value) || 0;
-    
-    // Elasticidad EMA
-    const distPct = ((S - EMA) / EMA) * 100;
-    let adjustment = distPct * 0.1;
-    adjustment = Math.max(-0.5, Math.min(0.5, adjustment));
-    const finalZ = zBase + adjustment;
-
-    // IV Ponderada y Confluencia
     const IVE = ((parseFloat(document.getElementById('ivw').value)/100)*0.75) + ((parseFloat(document.getElementById('ivd').value)/100)*0.25);
-    const ATRE = ((ATRW / 7) * 0.75) + (ATRD * 0.25);
-
-    // Strike Óptimo (Mayor entre ATR e IV)
-    const sATR = S + (ATRE * DTE * finalZ);
-    const sIV = S * (1 + (IVE * Math.sqrt(DTE/365) * finalZ));
-    const finalV = Math.max(sATR, sIV);
     
-    const tScore = (finalV - S) / (S * IVE * Math.sqrt(DTE/365));
+    // 1. Lógica Algoritmo
+    const distPct = ((S - EMA) / EMA) * 100;
+    let adj = Math.max(-0.5, Math.min(0.5, distPct * 0.1));
+    const finalZ = (parseFloat(document.getElementById('zBase').value) || 2) + adj;
+    const ATRE = ((parseFloat(document.getElementById('atrw').value)/7)*0.75) + (parseFloat(document.getElementById('atrd').value)*0.25);
+    const strikeAlgo = Math.max(S + (ATRE * DTE * finalZ), S * (1 + (IVE * Math.sqrt(DTE/365) * finalZ)));
+    
+    document.getElementById('elasticity').innerHTML = `Distancia EMA: ${distPct.toFixed(2)}% | Z-Adj: ${finalZ.toFixed(2)}`;
+    document.getElementById('outAlgo').innerHTML = `<label>STRIKE SUGERIDO:</label><span class="highlight">$${strikeAlgo.toLocaleString(undefined, {maximumFractionDigits:2})}</span>`;
+
+    // 2. Lógica Análisis Dual
+    const stkB = parseFloat(document.getElementById('stkBinance').value) || strikeAlgo;
+    const aprD = parseFloat(document.getElementById('aprDual').value) || 0;
+    const apyS = parseFloat(document.getElementById('apyStaking').value) || 0;
+    
+    const dualAPY = (Math.pow(1 + (aprD/100)/52, 52) - 1) * 100;
+    const mult = (dualAPY / apyS);
+    const tScore = Math.log(stkB/S) / (IVE * Math.sqrt(DTE/365));
     const probExito = studentT6(tScore) * 100;
-    const probPerdida = 100 - probExito;
+    const probP = 100 - probExito;
 
-    const badge = document.getElementById('elasticity');
-    badge.innerHTML = `Distancia EMA: <b>${distPct.toFixed(2)}%</b> | Ajuste Z: <b>${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(2)}</b>`;
-    badge.style.color = distPct > 0 ? 'var(--high)' : 'var(--low)';
+    let color = 'background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80;';
+    let msg = "Excelente Oportunidad";
+    if(probP > 4) { color = 'background: rgba(250, 204, 21, 0.15); color: #facc15; border: 1px solid #facc15;'; msg = "Riesgo Moderado"; }
+    if(probP > 8) { color = 'background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid #f87171;'; msg = "Peligro: Alta Prob. Conversión"; }
 
-    const rCol = probPerdida < 4 ? 'var(--low)' : (probPerdida < 8 ? 'var(--mid)' : 'var(--high)');
-
-    document.getElementById('out').innerHTML = `
-        <label>STRIKE SUGERIDO:</label>
-        <span class="highlight">$${finalV.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span>
-        <hr style="border:0; border-top:1px solid #475569; margin:10px 0">
-        <div style="font-size:0.85em">
-            Z Final: <b>${finalZ.toFixed(2)}</b> | Éxito: <span style="color:var(--low)">${probExito.toFixed(2)}%</span><br>
-            Prob. Perder ETH: <span style="color:${rCol}; font-weight:bold;">${probPerdida.toFixed(2)}%</span>
+    document.getElementById('outDual').innerHTML = `
+        <div class="result-box">
+            Prob. Éxito: <b>${probExito.toFixed(2)}%</b> | Perder ETH: <b style="color:${probP > 8 ? 'var(--high)' : 'var(--mid)'}">${probP.toFixed(2)}%</b>
+            <div style="margin-top:10px; font-size:0.9em">
+                Ventaja vs Staking: <b>+${(dualAPY - apyS).toFixed(2)}%</b> (${mult.toFixed(1)}x más)
+            </div>
+            <div class="badge" style="${color}">${msg}</div>
         </div>
     `;
 }
