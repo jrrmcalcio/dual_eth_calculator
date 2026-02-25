@@ -3,25 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ETH Sentinel v6.5 - Financial Engine</title>
+    <title>ETH Sentinel v6.7 - Fixed Step Sync</title>
     <style>
         :root { --primary: #38bdf8; --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --low: #4ade80; --mid: #facc15; --high: #f87171; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 10px; display: flex; justify-content: center; }
         .card { background: var(--card); padding: 20px; border-radius: 16px; width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
         .tabs { display: flex; gap: 5px; margin-bottom: 15px; background: #0f172a; padding: 5px; border-radius: 10px; }
-        .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; background: none; color: #94a3b8; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 0.8em; }
+        .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; background: none; color: #94a3b8; cursor: pointer; font-weight: bold; font-size: 0.8em; }
         .tab-btn.active { background: var(--primary); color: var(--bg); }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .btn-sync { width: 100%; background: var(--primary); color: var(--bg); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-sync { width: 100%; background: var(--primary); color: var(--bg); border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 15px; }
         .row { display: flex; gap: 10px; margin-bottom: 10px; }
         .col { flex: 1; }
         label { display: block; font-size: 0.75em; color: #94a3b8; margin-bottom: 4px; }
         input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #475569; background: var(--bg); color: #fff; box-sizing: border-box; }
-        input:disabled { opacity: 0.4; }
-        .elastic-badge { padding: 6px; border-radius: 6px; font-size: 0.75em; text-align: center; margin-bottom: 10px; border: 1px solid #475569; font-weight: bold;}
+        .weight-box { border: 1px solid #475569; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: rgba(56, 189, 248, 0.05); }
         .result-box { margin-top: 15px; padding: 15px; border-radius: 10px; background: #334155; border-left: 5px solid var(--primary); }
-        .highlight { color: var(--primary); font-weight: bold; font-size: 1.2em; display: block; }
+        .highlight { color: var(--primary); font-weight: bold; font-size: 1.4em; display: block; }
         .badge { display: block; padding: 8px; border-radius: 8px; text-align: center; font-weight: bold; margin-top: 10px; font-size: 0.85em; }
     </style>
 </head>
@@ -29,39 +28,47 @@
 
 <div class="card">
     <div class="tabs">
-        <button class="tab-btn active" onclick="openTab('algo')">ALGORITMO STRIKE</button>
-        <button class="tab-btn" onclick="openTab('dual')">ANÁLISIS DUAL</button>
+        <button class="tab-btn active" onclick="openTab('algo')">ESTRATEGIA</button>
+        <button class="tab-btn" onclick="openTab('dual')">FINANZAS</button>
     </div>
 
-    <button class="btn-sync" onclick="fetchMarket()">🔄 SINCRONIZAR MERCADO</button>
-
-    <div class="row">
-        <div class="col"><label>Spot ETH</label><input type="number" id="spot" class="sync-s" oninput="syncInputs(this, 's')"></div>
-        <div class="col"><label>EMA 20 (4H)</label><input type="number" id="ema" oninput="calc()"></div>
-    </div>
+    <button class="btn-sync" onclick="fetchMarket()">🔄 SINCRONIZAR DATOS REALES</button>
 
     <div id="algo" class="tab-content active">
-        <div style="background: #334155; padding: 10px; border-radius: 8px; margin-bottom: 10px;">
-            <input type="checkbox" id="autoATR" checked onchange="toggleATRFields()"> <small>ATRs Automáticos</small>
-            <div class="row" style="margin-top:5px">
-                <div class="col"><label>ATR D</label><input type="number" id="atrd" value="85" disabled oninput="calc()"></div>
-                <div class="col"><label>ATR W</label><input type="number" id="atrw" value="450" disabled oninput="calc()"></div>
+        <div class="row">
+            <div class="col"><label>Spot ETH</label><input type="number" id="spot" class="sync-s" oninput="syncInputs(this, 's')"></div>
+            <div class="col"><label>EMA 20 (4H)</label><input type="number" id="ema" oninput="calc()"></div>
+        </div>
+
+        <div class="weight-box">
+            <div class="row">
+                <div class="col"><label>Peso W (Semanal) %</label><input type="number" id="pW" value="75" oninput="syncP(true)"></div>
+                <div class="col"><label>Peso D (Diario) %</label><input type="number" id="pD" value="25" oninput="syncP(false)"></div>
             </div>
         </div>
-        <div id="elasticity" class="elastic-badge">--</div>
+
+        <div class="row">
+            <div class="col"><label>ATR Diario</label><input type="number" id="atrd" oninput="calc()"></div>
+            <div class="col"><label>ATR Semanal</label><input type="number" id="atrw" oninput="calc()"></div>
+        </div>
+        
         <div class="row">
             <div class="col"><label>DTE (Días)</label><input type="number" id="dte" class="sync-d" value="2" oninput="syncInputs(this, 'd')"></div>
-            <div class="col"><label>Base Z-Score</label><input type="number" id="zBase" value="2.0" step="0.1" oninput="calc()"></div>
+            <div class="col"><label>Z-Score Base</label><input type="number" id="zBase" value="2.0" step="0.1" oninput="calc()"></div>
         </div>
+
         <div class="row">
-            <div class="col"><label>IV D %</label><input type="number" id="ivd" value="53" oninput="calc()"></div>
-            <div class="col"><label>IV W %</label><input type="number" id="ivw" value="129" oninput="calc()"></div>
+            <div class="col"><label>IV Diaria %</label><input type="number" id="ivd" value="53" oninput="calc()"></div>
+            <div class="col"><label>IV Semanal %</label><input type="number" id="ivw" value="75" oninput="calc()"></div>
         </div>
         <div class="result-box" id="outAlgo"></div>
     </div>
 
     <div id="dual" class="tab-content">
-        <div class="input-group"><label>Strike de Binance (USD)</label><input type="number" id="stkBinance" oninput="calc()"></div>
+        <div class="row">
+            <div class="col"><label>Spot Actual</label><input type="number" class="sync-s" disabled></div>
+            <div class="col"><label>Strike de Binance</label><input type="number" id="stkBinance" placeholder="Ej: 2150" oninput="calc()"></div>
+        </div>
         <div class="row" style="margin-top:10px">
             <div class="col"><label>APR Dual %</label><input type="number" id="aprDual" value="12" oninput="calc()"></div>
             <div class="col"><label>Staking APY %</label><input type="number" id="apyStaking" value="2.97" oninput="calc()"></div>
@@ -84,33 +91,37 @@ function openTab(name) {
     calc();
 }
 
+function syncP(isW) {
+    let w = document.getElementById('pW'), d = document.getElementById('pD');
+    let v = Math.min(100, Math.max(0, parseFloat(isW ? w.value : d.value) || 0));
+    if(isW) { w.value = v; d.value = 100 - v; } else { d.value = v; w.value = 100 - v; }
+    calc();
+}
+
 function syncInputs(el, type) {
     document.querySelectorAll('.sync-' + type).forEach(i => i.value = el.value);
     calc();
 }
 
-function toggleATRFields() {
-    const isAuto = document.getElementById('autoATR').checked;
-    document.getElementById('atrd').disabled = isAuto;
-    document.getElementById('atrw').disabled = isAuto;
-}
-
 async function fetchMarket() {
     try {
         const p = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT').then(r => r.json());
-        document.querySelectorAll('.sync-s').forEach(i => i.value = parseFloat(p.price).toFixed(2));
+        const spot = parseFloat(p.price);
+        document.querySelectorAll('.sync-s').forEach(i => i.value = spot.toFixed(2));
+        
         const kRes = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=4h&limit=50').then(r => r.json());
         let ema = parseFloat(kRes[0][4]); const k = 2/21;
         kRes.forEach(c => { ema = (parseFloat(c[4]) - ema) * k + ema; });
         document.getElementById('ema').value = ema.toFixed(2);
-        if(document.getElementById('autoATR').checked) {
-            const dK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=15').then(r => r.json());
-            let sD = 0; dK.slice(0,14).forEach(k => sD += (k[2]-k[3]));
-            document.getElementById('atrd').value = (sD/14).toFixed(2);
-            const wK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1w&limit=15').then(r => r.json());
-            let sW = 0; wK.slice(0,14).forEach(k => sW += (k[2]-k[3]));
-            document.getElementById('atrw').value = (sW/14).toFixed(2);
-        }
+
+        const dK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d&limit=15').then(r => r.json());
+        let sD = 0; dK.slice(0,14).forEach(k => sD += (k[2]-k[3]));
+        document.getElementById('atrd').value = (sD/14).toFixed(2);
+        
+        const wK = await fetch('https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1w&limit=15').then(r => r.json());
+        let sW = 0; wK.slice(0,14).forEach(k => sW += (k[2]-k[3]));
+        document.getElementById('atrw').value = (sW/14).toFixed(2);
+
         calc();
     } catch(e) { console.error(e); }
 }
@@ -119,39 +130,50 @@ function calc() {
     const S = parseFloat(document.getElementById('spot').value) || 0;
     const EMA = parseFloat(document.getElementById('ema').value) || 0;
     const DTE = parseFloat(document.getElementById('dte').value) || 1;
-    const IVE = ((parseFloat(document.getElementById('ivw').value)/100)*0.75) + ((parseFloat(document.getElementById('ivd').value)/100)*0.25);
+    const pW = (parseFloat(document.getElementById('pW').value) || 0) / 100;
+    const pD = (parseFloat(document.getElementById('pD').value) || 0) / 100;
     
-    // 1. Lógica Algoritmo
+    // 1. Strike Algoritmo
     const distPct = ((S - EMA) / EMA) * 100;
     let adj = Math.max(-0.5, Math.min(0.5, distPct * 0.1));
-    const finalZ = (parseFloat(document.getElementById('zBase').value) || 2) + adj;
-    const ATRE = ((parseFloat(document.getElementById('atrw').value)/7)*0.75) + (parseFloat(document.getElementById('atrd').value)*0.25);
-    const strikeAlgo = Math.max(S + (ATRE * DTE * finalZ), S * (1 + (IVE * Math.sqrt(DTE/365) * finalZ)));
+    const finalZ = (parseFloat(document.getElementById('zBase').value) || 2.0) + adj;
     
-    document.getElementById('elasticity').innerHTML = `Distancia EMA: ${distPct.toFixed(2)}% | Z-Adj: ${finalZ.toFixed(2)}`;
-    document.getElementById('outAlgo').innerHTML = `<label>STRIKE SUGERIDO:</label><span class="highlight">$${strikeAlgo.toLocaleString(undefined, {maximumFractionDigits:2})}</span>`;
+    const ATRE = ((parseFloat(document.getElementById('atrw').value)/7)*pW) + (parseFloat(document.getElementById('atrd').value)*pD);
+    const IVE = ((parseFloat(document.getElementById('ivw').value)/100)*pW) + ((parseFloat(document.getElementById('ivd').value)/100)*pD);
+    
+    let rawStrike = Math.max(S + (ATRE * DTE * finalZ), S * (1 + (IVE * Math.sqrt(DTE/365) * finalZ)));
+    
+    // REDONDEO ESTRICTO DE 25 EN 25
+    const step = 25;
+    const realStrike = Math.ceil(rawStrike / step) * step;
 
-    // 2. Lógica Análisis Dual
-    const stkB = parseFloat(document.getElementById('stkBinance').value) || strikeAlgo;
+    document.getElementById('outAlgo').innerHTML = `
+        <label>STRIKE RECOMENDADO ($25 STEP):</label>
+        <span class="highlight">$${realStrike.toLocaleString()}</span>
+        <div style="font-size:0.7em; color:#94a3b8; margin-top:5px">
+            Distancia EMA: ${distPct.toFixed(2)}% | Z-Final: ${finalZ.toFixed(2)}
+        </div>
+    `;
+
+    // 2. Análisis Financiero
+    const stkF = parseFloat(document.getElementById('stkBinance').value) || realStrike;
     const aprD = parseFloat(document.getElementById('aprDual').value) || 0;
     const apyS = parseFloat(document.getElementById('apyStaking').value) || 0;
     
     const dualAPY = (Math.pow(1 + (aprD/100)/52, 52) - 1) * 100;
-    const mult = (dualAPY / apyS);
-    const tScore = Math.log(stkB/S) / (IVE * Math.sqrt(DTE/365));
-    const probExito = studentT6(tScore) * 100;
-    const probP = 100 - probExito;
+    const tScore = Math.log(stkF/S) / (IVE * Math.sqrt(DTE/365));
+    const probP = (1 - studentT6(tScore)) * 100;
 
     let color = 'background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80;';
     let msg = "Excelente Oportunidad";
-    if(probP > 4) { color = 'background: rgba(250, 204, 21, 0.15); color: #facc15; border: 1px solid #facc15;'; msg = "Riesgo Moderado"; }
-    if(probP > 8) { color = 'background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid #f87171;'; msg = "Peligro: Alta Prob. Conversión"; }
+    if(probP > 4.5) { color = 'background: rgba(250, 204, 21, 0.15); color: #facc15; border: 1px solid #facc15;'; msg = "Riesgo Moderado"; }
+    if(probP > 9) { color = 'background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid #f87171;'; msg = "Peligro de Conversión"; }
 
     document.getElementById('outDual').innerHTML = `
         <div class="result-box">
-            Prob. Éxito: <b>${probExito.toFixed(2)}%</b> | Perder ETH: <b style="color:${probP > 8 ? 'var(--high)' : 'var(--mid)'}">${probP.toFixed(2)}%</b>
-            <div style="margin-top:10px; font-size:0.9em">
-                Ventaja vs Staking: <b>+${(dualAPY - apyS).toFixed(2)}%</b> (${mult.toFixed(1)}x más)
+            Prob. Perder ETH: <b style="color:${probP > 9 ? 'var(--high)' : 'var(--mid)'}">${probP.toFixed(2)}%</b>
+            <div style="margin-top:5px; font-size:0.85em">
+                APY Dual: <b>${dualAPY.toFixed(2)}%</b> vs Staking: <b>${apyS}%</b>
             </div>
             <div class="badge" style="${color}">${msg}</div>
         </div>
